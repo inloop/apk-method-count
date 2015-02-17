@@ -7,6 +7,7 @@ var START_LEVEL_VISIBLE = 1;
 var collapsed = true;
 var generatedTreePlain = [];
 var lastFilename = "classes_stats";
+var treeView = $("#package-tree");
 
 var fileReaderOpts = {
     readAsDefault: "ArrayBuffer", on: {
@@ -14,12 +15,23 @@ var fileReaderOpts = {
             lastFilename = extractFileNameWithoutExt(file.name);
             setIsLoading(true);
             setTimeout(function () {
-                renderPackages(loadDexFile(e.target.result));
-
-                $("#output-box").fadeIn();
-                $(".nouploadinfo").hide();
-                $("#dropzone").animate({ height: 50}, 500);
-                $("#success-box").show();
+                var errorText = $(".alert-danger.box");
+                try {
+                    var data = loadDexFile(e.target.result);
+                    renderPackages(data);
+                    $("#output-box").fadeIn();
+                    $(".nouploadinfo").hide();
+                    $("#dropzone").delay(50).animate({ height: 50}, 500);
+                    $("#success-box").show();
+                    errorText.hide();
+                } catch (exception) {
+                    console.log(exception);
+                    setIsLoading(false);
+                    errorText.text("Not a valid APK!");
+                    errorText.show();
+                    $("#output-box").hide();
+                    $("#success-box").hide();
+                }
             }, 50);
         }
     }
@@ -81,7 +93,6 @@ function loadDexFile(arrayBuffer) {
 
 function renderPackages(data) {
     var treeBuilder = [];
-    var treeView = $("#package-tree");
 
     generatedTreePlain = [];
     generatedTreePlain.push("Total methods count: " + data.methodsCount);
@@ -100,9 +111,10 @@ function renderPackages(data) {
     setIsLoading(false);
 }
 
+var nodeTraverse = [];
+
 function recursiveRenderPackage(treeBuilder, node, level) {
     var sortedNode = Object.keys(node).sort(function (a,b) { return node[b][TREE_COUNT_NAME] - node[a][TREE_COUNT_NAME]; });
-
     for (var item in sortedNode) {
         item = sortedNode[item];
         if (item != TREE_COUNT_NAME) {
@@ -110,21 +122,26 @@ function recursiveRenderPackage(treeBuilder, node, level) {
             var nodeSign = "<i class='glyphicon " + (level == 0 ? MINUS_SIGN_GLYPHICON : PLUS_SIGN_GLYPHICON) + "'></i> ";
             var hasChildren = Object.keys(node[item]).length > 1;
             var count = node[item][TREE_COUNT_NAME];
+            var extraSpan = "";
+
+            if (level > 0) {
+                extraSpan = nodeTraverse.join(".") + "." + item;
+            }
 
             generatedTreePlain.push("\t".repeat(level) + item + " ["+count+"]");
 
             treeBuilder.push("<li style='display: " + displayStyle + "'><span> " + (hasChildren ? nodeSign : "") + item +
-            " <span class='badge'>" + count + "</span></span>");
-
+            " <span class='badge'>" + count + "</span></span> <p class='node-info'>" + extraSpan + "</p>");
             if (hasChildren) {
+                nodeTraverse.push(item);
                 treeBuilder.push("<ul>");
                 level++;
                 recursiveRenderPackage(treeBuilder, node[item], level);
                 level--;
                 treeBuilder.push("</ul>");
+                nodeTraverse.pop();
             }
             treeBuilder.push("</li>");
-
         }
     }
 }
@@ -178,6 +195,8 @@ if (typeof FileReader === "undefined") {
 function updateTree() {
     $('.tree li:has(ul)').addClass('parent_li').find(' > span').attr('title', 'Collapse this branch');
 
+    var lastMouseOverNode = null;
+
     $('.tree li.parent_li > span').on('click', function (e) {
         var children = $(this).parent('li.parent_li').find(' > ul > li');
         if (children.is(":visible")) {
@@ -190,4 +209,33 @@ function updateTree() {
         e.stopPropagation();
     });
 
+    $('.tree li > span').on('mouseenter', function (e) {
+        if (lastMouseOverNode != null) {
+            lastMouseOverNode.css("display", "none");
+        }
+        var nodeInfo = $(e.target).closest("li").find(".node-info:first");
+        nodeInfo.css("display", "inline-block");
+        lastMouseOverNode = nodeInfo;
+        e.stopPropagation();
+    });
+
+    $(".node-info").on("click", function (e) {
+        selectAll($(e.target)[0]);
+        e.stopPropagation();
+    });
+
+}
+
+function selectAll(el) {
+    if (typeof window.getSelection != "undefined" && typeof document.createRange != "undefined") {
+        var range = document.createRange();
+        range.selectNodeContents(el);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    } else if (typeof document.selection != "undefined" && typeof document.body.createTextRange != "undefined") {
+        var textRange = document.body.createTextRange();
+        textRange.moveToElementText(el);
+        textRange.select();
+    }
 }

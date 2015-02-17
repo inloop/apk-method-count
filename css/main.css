@@ -20,6 +20,12 @@ footer small a {
 
 }
 
+.node-info {
+    font-style: italic;
+    display: none;
+    margin:0;
+    padding:0;
+}
 
 .drag {
     background-color: lightblue;
