@@ -1,4 +1,4 @@
-//dexjs 0.1
+//dexjs 0.2
 //Written by Juraj Novák (inloop.eu)
 //based on https://github.com/mihaip/dex-method-counts
 
