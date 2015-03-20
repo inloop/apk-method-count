@@ -6,7 +6,7 @@ var DEX_FILE_MAGIC = [0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x36, 0x00];
 var DEX_FILE_MAGIC_API_13 = [0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x35, 0x00];
 var ENDIAN_CONSTANT = 0x12345678;
 var REVERSE_ENDIAN_CONSTANT = 0x78563412;
-var CLASSES_FILE = "classes.dex";
+var CLASSES_FILENAME = /classes\d*\.dex/;
 
 var dexFile = {
     fileSize: {},
@@ -35,20 +35,27 @@ var strings = [], types = [], protos = [], fields = [], methods = [], classes = 
 
 var DexFile = function (arrayBuffer) {
     var zip = new JSZip(arrayBuffer);
-    var dv = new jDataView(zip.file(CLASSES_FILE).asArrayBuffer());
-    if (isValidDexFile(dv.getBytes(8))) {
+    var files = zip.file(CLASSES_FILENAME);
+    //Check if contains at least one dex file
+    if (files.length > 0) {
+        for (var i = 0; i < files.length; i++) {
+            var dv = new jDataView(files[i].asArrayBuffer());
+            if (isValidDexFile(dv.getBytes(8))) {
+                parseHeader(dv);
+                loadStrings(dv);
+                loadTypes(dv);
+                loadProtos(dv);
+                loadFields(dv);
+                loadMethods(dv);
+                loadClasses(dv);
 
-        parseHeader(dv);
-        loadStrings(dv);
-        loadTypes(dv);
-        loadProtos(dv);
-        loadFields(dv);
-        loadMethods(dv);
-        loadClasses(dv);
-
-        markInternalClasses();
+                markInternalClasses();
+            } else {
+                throw "APK not compatible!";
+            }
+        }
     } else {
-        throw "APK not compatible!";
+        throw "APK does not contain .dex file(s)!";
     }
 };
 
@@ -79,7 +86,7 @@ DexFile.prototype.getExternalReferences = function () {
 
 DexFile.prototype.getMethodRefs = function () {
     var refs = [];
-    for (var i = 0; i < dexFile.methodIdsSize; i++) {
+    for (var i = 0; i < methods.length; i++) {
         var method = methods[i];
         refs[i] = {};
         refs[i].className = classNameFromTypeIndex(method.classIdx);
@@ -131,6 +138,7 @@ function parseHeader(dv) {
 }
 
 function loadStrings(dv) {
+    var curStrings = [];
     var offsets = [];
     dv.seek(dexFile.stringIdsOff);
 
@@ -141,74 +149,85 @@ function loadStrings(dv) {
     dv.seek(offsets[0]);
     for (var i = 0; i < dexFile.stringIdsSize; i++) {
         dv.seek(offsets[i]);
-        strings[i] = dv.readStringUtf();
+        curStrings[i] = dv.readStringUtf();
     }
+    strings = strings.concat(curStrings);
 }
 
 function loadTypes(dv) {
+    var curTypes = [];
     dv.seek(dexFile.typeIdsOff);
     for (var i = 0; i < dexFile.typeIdsSize; i++) {
-        types[i] = dv.getInt32();
+        curTypes[i] = dv.getInt32();
     }
+    types = types.concat(curTypes);
 }
 
 function loadProtos(dv) {
+    var curProtos = [];
     dv.seek(dexFile.protoIdsOff);
     for (var i = 0; i < dexFile.protoIdsSize; i++) {
-        protos[i] = {};
-        protos[i].shortyIdx = dv.getInt32();
-        protos[i].returnTypeIdx = dv.getInt32();
-        protos[i].parametersOff = dv.getInt32();
+        curProtos[i] = {};
+        curProtos[i].shortyIdx = dv.getInt32();
+        curProtos[i].returnTypeIdx = dv.getInt32();
+        curProtos[i].parametersOff = dv.getInt32();
     }
 
     for (var i = 0; i < dexFile.protoIdsSize; i++) {
-        var offset = protos[i].parametersOff;
-        protos[i].types = [];
+        var offset = curProtos[i].parametersOff;
+        curProtos[i].types = [];
         if (offset != 0) {
 
             dv.seek(offset);
             var size = dv.getInt32();       // #of entries in list
 
             for (var j = 0; j < size; j++) {
-                protos[i].types[j] = dv.getInt16() & 0xffff;
+                curProtos[i].types[j] = dv.getInt16() & 0xffff;
             }
         }
     }
+    protos = protos.concat(curProtos)
 }
 
 function loadFields(dv) {
+    var curFields = [];
     dv.seek(dexFile.fieldIdsOff);
     for (var i = 0; i < dexFile.fieldIdsSize; i++) {
-        fields[i] = {};
-        fields[i].classIdx = dv.getInt16() & 0xffff;
-        fields[i].typeIdx = dv.getInt16() & 0xffff;
-        fields[i].nameIdx = dv.getInt32();
+        curFields[i] = {};
+        curFields[i].classIdx = dv.getInt16() & 0xffff;
+        curFields[i].typeIdx = dv.getInt16() & 0xffff;
+        curFields[i].nameIdx = dv.getInt32();
     }
+    fields = fields.concat(curFields);
 }
 
 function loadMethods(dv) {
+    var curMethods = [];
     dv.seek(dexFile.methodIdsOff);
     for (var i = 0; i < dexFile.methodIdsSize; i++) {
-        methods[i] = {};
-        methods[i].classIdx = dv.getInt16() & 0xffff;
-        methods[i].protoIdx = dv.getInt16() & 0xffff;
-        methods[i].nameIdx = dv.getInt32();
+        curMethods[i] = {};
+        curMethods[i].classIdx = dv.getInt16() & 0xffff;
+        curMethods[i].protoIdx = dv.getInt16() & 0xffff;
+        curMethods[i].nameIdx = dv.getInt32();
     }
+    methods = methods.concat(curMethods);
 }
 
 function loadClasses(dv) {
+    var curClasses = [];
     dv.seek(dexFile.classDefsOff);
     for (var i = 0; i < dexFile.classDefsSize; i++) {
-        classes[i] = {};
-        classes[i].classIdx = dv.getInt32();
-        classes[i].accessFlags = dv.getInt32();
-        classes[i].superclassIdx = dv.getInt32();
-        classes[i].interfacesOff = dv.getInt32();
-        classes[i].sourceFileIdx = dv.getInt32();
-        classes[i].annotationsOff = dv.getInt32();
-        classes[i].classDataOff = dv.getInt32();
-        classes[i].staticValuesOff = dv.getInt32();
+        curClasses[i] = {};
+        curClasses[i].classIdx = dv.getInt32();
+        curClasses[i].accessFlags = dv.getInt32();
+        curClasses[i].superclassIdx = dv.getInt32();
+        curClasses[i].interfacesOff = dv.getInt32();
+        curClasses[i].sourceFileIdx = dv.getInt32();
+        curClasses[i].annotationsOff = dv.getInt32();
+        curClasses[i].classDataOff = dv.getInt32();
+        curClasses[i].staticValuesOff = dv.getInt32();
     }
+    classes = classes.concat(curClasses);
 }
 
 function addExternalFieldReferences(sparseRefs) {

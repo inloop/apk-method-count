@@ -88,7 +88,7 @@ function loadDexFile(arrayBuffer) {
     //Sort
     var sortedMap = Object.keys(treemap).sort(function (a,b) { return treemap[b][TREE_COUNT_NAME] - treemap[a][TREE_COUNT_NAME]; });
 
-    return {tree:treemap, sorted:sortedMap, methodsCount:dexFile.getHeader().methodIdsSize};
+    return {tree:treemap, sorted:sortedMap, methodsCount:methodRefs.length};
 }
 
 function renderPackages(data) {
