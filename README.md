@@ -2,7 +2,7 @@
 APK method count
 ===========
 
-*Output per-package method counts.*
+*Output per-package method counts. Supports [multidex](https://developer.android.com/tools/building/multidex.html).*
 
 ![](img/example.png)
 
