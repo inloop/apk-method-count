@@ -38,6 +38,15 @@ var DexFile = function (arrayBuffer) {
     var files = zip.file(CLASSES_FILENAME);
     //Check if contains at least one dex file
     if (files.length > 0) {
+
+        //Clear previous data
+        strings.splice(0, strings.length);
+        types.splice(0, types.length);
+        protos.splice(0, protos.length);
+        fields.splice(0, fields.length);
+        methods.splice(0, methods.length);
+        classes.splice(0, classes.length);
+
         for (var i = 0; i < files.length; i++) {
             var dv = new jDataView(files[i].asArrayBuffer());
             if (isValidDexFile(dv.getBytes(8))) {
