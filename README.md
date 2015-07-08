@@ -1,6 +1,6 @@
 [![Android Arsenal](https://img.shields.io/badge/Android%20Arsenal-apk--method--count-brightgreen.svg?style=flat)](https://android-arsenal.com/details/1/1567)
 APK method count
-===========
+============
 
 *Output per-package method counts. Supports [multidex](https://developer.android.com/tools/building/multidex.html).*
 
