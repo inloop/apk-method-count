@@ -88,7 +88,7 @@ function loadDexFile(arrayBuffer) {
     //Sort
     var sortedMap = Object.keys(treemap).sort(function (a,b) { return treemap[b][TREE_COUNT_NAME] - treemap[a][TREE_COUNT_NAME]; });
 
-    return {tree:treemap, sorted:sortedMap, methodsCount:methodRefs.length};
+    return {tree:treemap, sorted:sortedMap, methodsCount:methodRefs.length, multidex:dexFile.isMultidex()};
 }
 
 function renderPackages(data) {
@@ -106,6 +106,7 @@ function renderPackages(data) {
     treeView.append(treeBuilder.join(""));
     updateTree();
 
+    $("#method-count-multidex").text(data.multidex ? "(multidex enabled)" : "");
     $("#method-count-total").text(data.methodsCount);
 
     setIsLoading(false);

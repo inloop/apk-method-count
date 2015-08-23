@@ -32,6 +32,7 @@ var dexFile = {
 };
 
 var strings = [], types = [], protos = [], fields = [], methods = [], classes = [];
+var isMultidex;
 
 var DexFile = function (arrayBuffer) {
     var zip = new JSZip(arrayBuffer);
@@ -46,6 +47,7 @@ var DexFile = function (arrayBuffer) {
         fields.splice(0, fields.length);
         methods.splice(0, methods.length);
         classes.splice(0, classes.length);
+        isMultidex = files.length > 1;
 
         for (var i = 0; i < files.length; i++) {
             var dv = new jDataView(files[i].asArrayBuffer());
@@ -91,6 +93,10 @@ DexFile.prototype.getExternalReferences = function () {
     }
 
     return classRefs;
+};
+
+DexFile.prototype.isMultidex = function () {
+    return isMultidex;
 };
 
 DexFile.prototype.getMethodRefs = function () {
