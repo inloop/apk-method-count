@@ -6,6 +6,10 @@ APK method count
 
 ![](img/example.png)
 
+Also you can now view per-class method counts:
+
+![](img/example2.png)
+
 ###License
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
