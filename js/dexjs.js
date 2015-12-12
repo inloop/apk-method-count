@@ -1,12 +1,20 @@
-//dexjs 0.2
+//dexjs 0.3
 //Written by Juraj Novák (inloop.eu)
 //based on https://github.com/mihaip/dex-method-counts
+//https://source.android.com/devices/tech/dalvik/dex-format.html
 
 var DEX_FILE_MAGIC = [0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x36, 0x00];
 var DEX_FILE_MAGIC_API_13 = [0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x35, 0x00];
 var ENDIAN_CONSTANT = 0x12345678;
 var REVERSE_ENDIAN_CONSTANT = 0x78563412;
 var CLASSES_FILENAME = /classes\d*\.dex/;
+
+var ACCESS_FLAGS = {
+    ACC_PUBLIC:0x1, ACC_PRIVATE:0x2, ACC_PROTECTED:0x4, ACC_STATIC:0x8, ACC_FINAL:0x10, ACC_SYNCHRONIZED:0x20, ACC_VOLATILE:0x40,
+    ACC_BRIDGE:0x40, ACC_TRANSIENT:0x80, ACC_VARARGS:0x80, ACC_NATIVE:0x100, ACC_INTERFACE:0x200, ACC_ABSTRACT:0x400,
+    ACC_STRICT:0x800, ACC_SYNTHETIC:0x1000, ACC_ANNOTATION:0x2000, ACC_ENUM:0x4000, ACC_CONSTRUCTOR:0x10000,
+    ACC_DECLARED_SYNCHRONIZED:0x20000
+};
 
 var dexFile = {
     fileSize: {},
@@ -70,6 +78,8 @@ var DexFile = function (arrayBuffer) {
     }
 };
 
+DexFile.ACCESS_FLAGS = ACCESS_FLAGS;
+
 DexFile.prototype.getExternalReferences = function () {
     var sparseRefs = [];
     var count = 0;
@@ -104,9 +114,8 @@ DexFile.prototype.getMethodRefs = function () {
     for (var i = 0; i < methods.length; i++) {
         var method = methods[i];
         refs[i] = {};
-        refs[i].className = classNameFromTypeIndex(method.classIdx);
-        refs[i].argArray = argArrayFromProtoIndex(method.protoIdx);
-        refs[i].returnType = returnTypeFromProtoIndex(method.protoIdx);
+        refs[i].classIdx = method.classIdx;
+        refs[i].protoIdx = method.protoIdx;
         refs[i].name = strings[method.nameIdx];
     }
     return refs;
@@ -346,6 +355,28 @@ DexFile.primitiveTypeLabel = function (typeChar) {
     }
 };
 
+DexFile.getReturnType = function (protoIdx) {
+    return returnTypeFromProtoIndex(protoIdx);
+};
+
+DexFile.getArgArray = function (protoIdx) {
+    return argArrayFromProtoIndex(protoIdx);
+};
+
+DexFile.getClassName = function (classIdx) {
+    return classNameFromTypeIndex(classIdx);
+};
+
+DexFile.getClassData = function (classIdx) {
+    for (var c in classes) {
+        var obj = classes[c];
+        if (obj.classIdx == classIdx) {
+            return obj;
+        }
+    }
+    return null;
+};
+
 DexFile.packageNameOnly = function (typeName) {
     var dotted = DexFile.descriptorToDot(typeName);
     var end = dotted.lastIndexOf(".");
@@ -353,6 +384,16 @@ DexFile.packageNameOnly = function (typeName) {
         return "";
     } else {
         return dotted.substring(0, end);
+    }
+};
+
+DexFile.classNameOnly = function (typeName) {
+    var dotted = DexFile.descriptorToDot(typeName);
+    var start = dotted.lastIndexOf(".");
+    if (start < 0) {
+        return dotted;
+    } else {
+        return dotted.substring(start+1);
     }
 };
 
