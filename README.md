@@ -1,14 +1,15 @@
 [![Android Arsenal](https://img.shields.io/badge/Android%20Arsenal-apk--method--count-brightgreen.svg?style=flat)](https://android-arsenal.com/details/1/1567)
 APK method count
 ============
-
 *Output per-package method counts. Supports [multidex](https://developer.android.com/tools/building/multidex.html).*
 
 ![](img/example.png)
 
-Also you can now view per-class method counts:
+Also you can now view per-class method counts for more detailed analysis. Inline classes are showed in this format: *ParentClass$InlineClass*. Anonymous classes are in this format: *(anon-cls-ID)*.
 
 ![](img/example2.png)
+
+It's written in TypeScript, If you want contribute - create a pull request or create an issue (If you have an idea or have you found an issue).
 
 ###License
     Licensed under the Apache License, Version 2.0 (the "License");
