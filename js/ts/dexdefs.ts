@@ -10,7 +10,7 @@ namespace DexFormat {
     }
 
     abstract class BaseDef {
-        protected static NO_INDEX = 0xffffffff;
+        protected static NO_INDEX:number = 0xffffffff;
         protected reader:DexFileReader;
 
         constructor(reader:DexFileReader) {
@@ -20,7 +20,6 @@ namespace DexFormat {
 
     abstract class ClassBaseDef extends BaseDef {
         protected classIdx:number;
-
 
         public getClassData():ClassDef {
             return this.reader.getClass(this.classIdx);

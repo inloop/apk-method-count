@@ -16,7 +16,7 @@ namespace DexFormat {
         //Constants
         private static DEX_FILE_MAGIC:number[] = [0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x36, 0x00];
         private static DEX_FILE_MAGIC_API_13:number[] = [0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x35, 0x00];
-        private static CLASSES_FILENAME = /classes\d*\.dex/;
+        private static CLASSES_FILENAME:RegExp = /classes\d*\.dex/;
 
         private header:DexHeader;
         private strings:string[] = [];

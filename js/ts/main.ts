@@ -9,17 +9,17 @@ import TypeDef = DexFormat.TypeDef;
 import DexFileReader = DexFormat.DexFileReader;
 
 namespace ApkMethodCount {
+
     export class AppView {
 
-        public static TREE_COUNT_NAME:string = "__count";
-        public static TREE_CLASSES:string = "__classes";
+        //Used for saving classes and method counts in package tree
+        public static TREE_META_NODE:string = "__metadata";
 
         private static PLUS_SIGN_GLYPHICON:string = "glyphicon-plus-sign";
         private static MINUS_SIGN_GLYPHICON:string = "glyphicon-minus-sign";
-        private static START_LEVEL_VISIBLE:number = 1;
 
-        private static TEXT_EXPAND = "Expand";
-        private static TEXT_COLLAPSE = "Collapse";
+        private static TEXT_EXPAND:string = "Expand";
+        private static TEXT_COLLAPSE:string = "Collapse";
 
         private generatedTreePlain:string[] = [];
         private lastFilename:string = "classes_stats";
@@ -31,11 +31,12 @@ namespace ApkMethodCount {
 
         private fileReaderOpts:FileReaderJSOpts = {
             readAsDefault: "ArrayBuffer", on: {
-                load: (e, v) => this.onLoad(e, v)
+                load: (e, v) => this.onLoadFile(e, v)
             }
         };
 
         constructor() {
+            //Check If browser supports FileReader API
             if (typeof FileReader === "undefined") {
                 $('#dropzone, #dropzone-dialog').hide();
                 $('#compat-error').show();
@@ -43,16 +44,14 @@ namespace ApkMethodCount {
                 $('#dropzone, #dropzone-dialog').fileReaderJS(this.fileReaderOpts);
             }
 
-            this.treeView.on("mouseleave", () => {
-                this.resetLastMouseOverNode();
-            });
-
+            //Bind event listeners
+            this.treeView.on("mouseleave", ()=> this.resetLastMouseOverNode());
             $("#expand-collapse-btn").on("click", ()=> this.expandCollapseAll());
             $("#download-btn").on("click", ()=> this.download());
             $("#dropzone").on("click", ()=> this.dropzoneClick());
         }
 
-        private onLoad(e:any, file:File):void {
+        private onLoadFile(e:any, file:File):void {
             this.lastFilename = this.model.extractFileNameWithoutExt(file.name);
             this.setIsLoading(true);
             setTimeout(() => {
@@ -88,7 +87,7 @@ namespace ApkMethodCount {
             }
         }
 
-        private renderPackages(data):void {
+        private renderPackages(data:LoadedDexData):void {
             var treeBuilder = [];
 
             this.generatedTreePlain = [];
@@ -113,16 +112,18 @@ namespace ApkMethodCount {
         }
 
         private recursiveRenderPackage(treeBuilder:string[], node:any, level:number):void {
-            var sortedNode = Object.keys(node).sort(function (a, b) {
-                return node[b][AppView.TREE_COUNT_NAME] - node[a][AppView.TREE_COUNT_NAME];
+            //Sort current node by method counts
+            var sortedNode = Object.keys(node).sort((a:any, b:any) => {
+                if (a == AppView.TREE_META_NODE || b == AppView.TREE_META_NODE) return -1;
+                return node[b][AppView.TREE_META_NODE].getCount() - node[a][AppView.TREE_META_NODE].getCount();
             });
             for (var item in sortedNode) {
                 item = sortedNode[item];
-                if (item != AppView.TREE_COUNT_NAME && item != AppView.TREE_CLASSES) {
-                    var displayStyle = level <= AppView.START_LEVEL_VISIBLE ? "visible" : "none";
+                if (item != AppView.TREE_META_NODE) {
+                    var displayStyle = level <= Model.START_LEVEL_VISIBLE ? "visible" : "none";
                     var nodeSign = "<i class='glyphicon " + (level == 0 ? AppView.MINUS_SIGN_GLYPHICON : AppView.PLUS_SIGN_GLYPHICON) + "'></i> ";
-                    var hasChildren = Object.keys(node[item]).length > 2; //TREE_COUNT_NAME and TREE_CLASSES ignore
-                    var count = node[item][AppView.TREE_COUNT_NAME];
+                    var hasChildren = Object.keys(node[item]).length > 1; //TREE_META_NODE ignore
+                    var count = node[item][AppView.TREE_META_NODE].getCount();
                     var extraSpan = "";
                     var extraInfo = "";
 
@@ -172,11 +173,9 @@ namespace ApkMethodCount {
 
             //Sort by counts
             var classes = [];
-            var sortedNode = Object.keys(currentNode[AppView.TREE_CLASSES]).sort(function (a, b) {
-                return currentNode[AppView.TREE_CLASSES][b].getMethodCount() - currentNode[AppView.TREE_CLASSES][a].getMethodCount();
-            });
+            var sortedNode = currentNode[AppView.TREE_META_NODE].getSortedClasses();
             for (var item in sortedNode) {
-                var data = currentNode[AppView.TREE_CLASSES][sortedNode[Number(item)]];
+                var data = currentNode[AppView.TREE_META_NODE].getClassWrapper(Number(sortedNode[item]));
                 var count = data.getMethodCount();
                 var classNameFull = data.getClassType().getDescriptor();
                 var className = DexFileReader.getClassNameOnly(classNameFull);

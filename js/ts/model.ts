@@ -11,18 +11,21 @@ namespace ApkMethodCount {
         private static ICON_REF:string = "reference";
         private static INNER_CLASS_REGEX:RegExp = /^\d+$/;
 
+        public static START_LEVEL_VISIBLE:number = 1;
+        public static TREE_CLASS_LEVEL:number = 1;
+
         private currentTreemap:ClassDataWrapper[];
 
         public getCurrentTreemap():ClassDataWrapper[] {
             return this.currentTreemap;
         }
 
-        public loadDexFile(arrayBuffer:ArrayBuffer):any {
+        public loadDexFile(arrayBuffer:ArrayBuffer):LoadedDexData {
             var dexFile = new DexFileReader(arrayBuffer);
             var methodRefs = dexFile.getMethodRefs();
             var treemap:ClassDataWrapper[] = [];
 
-            for (var i = 0; i < methodRefs.length; i++) { //methodRefs.length
+            for (var i = 0; i < methodRefs.length; i++) {
                 var classData = methodRefs[i].getClassData();
                 var classType = methodRefs[i].getClassType();
                 var classDescriptor = classType.getDescriptor();
@@ -48,31 +51,26 @@ namespace ApkMethodCount {
                         }
                         currentNode = currentNode[packageNameParts[j]];
                     }
-                    currentNode[AppView.TREE_COUNT_NAME] = ++currentNode[AppView.TREE_COUNT_NAME] || 1;
+
+                    var metaNode;
+                    if (typeof currentNode[AppView.TREE_META_NODE] === "undefined") {
+                        metaNode = currentNode[AppView.TREE_META_NODE] = new PackageNodeMetaData();
+                    } else {
+                        metaNode = currentNode[AppView.TREE_META_NODE];
+                    }
+                    metaNode.incrementMethodCount();
 
                     //Save classes and their method counts
-                    if (j >= 1) { //ignore root package level
-                        if (typeof currentNode[AppView.TREE_CLASSES] === "undefined") {
-                            currentNode[AppView.TREE_CLASSES] = [];
-                        }
-                        if (typeof currentNode[AppView.TREE_CLASSES][classIdx] === "undefined") {
-                            currentNode[AppView.TREE_CLASSES][classIdx] = new ClassDataWrapper(classType, classData);
-                        }
-
-                        currentNode[AppView.TREE_CLASSES][classIdx].incrementMethodCount();
+                    if (j >= Model.TREE_CLASS_LEVEL) { //ignore root package level
+                        metaNode.addClassAndIncrement(classIdx, new ClassDataWrapper(classType, classData));
                     }
                 }
             }
 
-            //Sort
-            var sortedMap = Object.keys(treemap).sort(function (a, b) {
-                return treemap[b][AppView.TREE_COUNT_NAME] - treemap[a][AppView.TREE_COUNT_NAME];
-            });
-
             //Save reference for later (showing package details)
             this.currentTreemap = treemap;
 
-            return {tree: treemap, sorted: sortedMap, methodsCount: methodRefs.length, multidex: dexFile.isMultidex()};
+            return {tree: treemap, methodsCount: methodRefs.length, multidex: dexFile.isMultidex()};
         }
 
         public isInnerClassFromName(className:string):boolean {
@@ -131,6 +129,36 @@ namespace ApkMethodCount {
 
         public getClassDef():ClassDef {
             return this.classDef;
+        }
+    }
+
+    export class PackageNodeMetaData {
+        private classes:ClassDataWrapper[] = [];
+        private count:number = 0;
+
+        public incrementMethodCount():void {
+            this.count++;
+        }
+
+        public addClassAndIncrement(idx:number, classWrapper:ClassDataWrapper):void {
+            if (typeof this.classes[idx] === "undefined") {
+                this.classes[idx] = classWrapper;
+            }
+            this.classes[idx].incrementMethodCount();
+        }
+
+        public getCount():number {
+            return this.count;
+        }
+
+        public getClassWrapper(idx:number):ClassDataWrapper {
+            return this.classes[idx];
+        }
+
+        public getSortedClasses():string[] {
+            return Object.keys(this.classes).sort((a, b) => {
+                return this.classes[b].getMethodCount() - this.classes[a].getMethodCount();
+            });
         }
     }
 

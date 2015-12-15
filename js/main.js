@@ -526,26 +526,23 @@ var ApkMethodCount;
                         }
                         currentNode = currentNode[packageNameParts[j]];
                     }
-                    currentNode[ApkMethodCount.AppView.TREE_COUNT_NAME] = ++currentNode[ApkMethodCount.AppView.TREE_COUNT_NAME] || 1;
+                    var metaNode;
+                    if (typeof currentNode[ApkMethodCount.AppView.TREE_META_NODE] === "undefined") {
+                        metaNode = currentNode[ApkMethodCount.AppView.TREE_META_NODE] = new PackageNodeMetaData();
+                    }
+                    else {
+                        metaNode = currentNode[ApkMethodCount.AppView.TREE_META_NODE];
+                    }
+                    metaNode.incrementMethodCount();
                     //Save classes and their method counts
-                    if (j >= 1) {
-                        if (typeof currentNode[ApkMethodCount.AppView.TREE_CLASSES] === "undefined") {
-                            currentNode[ApkMethodCount.AppView.TREE_CLASSES] = [];
-                        }
-                        if (typeof currentNode[ApkMethodCount.AppView.TREE_CLASSES][classIdx] === "undefined") {
-                            currentNode[ApkMethodCount.AppView.TREE_CLASSES][classIdx] = new ClassDataWrapper(classType, classData);
-                        }
-                        currentNode[ApkMethodCount.AppView.TREE_CLASSES][classIdx].incrementMethodCount();
+                    if (j >= Model.TREE_CLASS_LEVEL) {
+                        metaNode.addClassAndIncrement(classIdx, new ClassDataWrapper(classType, classData));
                     }
                 }
             }
-            //Sort
-            var sortedMap = Object.keys(treemap).sort(function (a, b) {
-                return treemap[b][ApkMethodCount.AppView.TREE_COUNT_NAME] - treemap[a][ApkMethodCount.AppView.TREE_COUNT_NAME];
-            });
             //Save reference for later (showing package details)
             this.currentTreemap = treemap;
-            return { tree: treemap, sorted: sortedMap, methodsCount: methodRefs.length, multidex: dexFile.isMultidex() };
+            return { tree: treemap, methodsCount: methodRefs.length, multidex: dexFile.isMultidex() };
         };
         Model.prototype.isInnerClassFromName = function (className) {
             return className.match(Model.INNER_CLASS_REGEX) !== null;
@@ -585,6 +582,8 @@ var ApkMethodCount;
         Model.ICON_ENUM = "enum";
         Model.ICON_REF = "reference";
         Model.INNER_CLASS_REGEX = /^\d+$/;
+        Model.START_LEVEL_VISIBLE = 1;
+        Model.TREE_CLASS_LEVEL = 1;
         return Model;
     })();
     ApkMethodCount.Model = Model;
@@ -609,6 +608,35 @@ var ApkMethodCount;
         return ClassDataWrapper;
     })();
     ApkMethodCount.ClassDataWrapper = ClassDataWrapper;
+    var PackageNodeMetaData = (function () {
+        function PackageNodeMetaData() {
+            this.classes = [];
+            this.count = 0;
+        }
+        PackageNodeMetaData.prototype.incrementMethodCount = function () {
+            this.count++;
+        };
+        PackageNodeMetaData.prototype.addClassAndIncrement = function (idx, classWrapper) {
+            if (typeof this.classes[idx] === "undefined") {
+                this.classes[idx] = classWrapper;
+            }
+            this.classes[idx].incrementMethodCount();
+        };
+        PackageNodeMetaData.prototype.getCount = function () {
+            return this.count;
+        };
+        PackageNodeMetaData.prototype.getClassWrapper = function (idx) {
+            return this.classes[idx];
+        };
+        PackageNodeMetaData.prototype.getSortedClasses = function () {
+            var _this = this;
+            return Object.keys(this.classes).sort(function (a, b) {
+                return _this.classes[b].getMethodCount() - _this.classes[a].getMethodCount();
+            });
+        };
+        return PackageNodeMetaData;
+    })();
+    ApkMethodCount.PackageNodeMetaData = PackageNodeMetaData;
 })(ApkMethodCount || (ApkMethodCount = {}));
 ///<reference path="dexformat.ts"/>
 ///<reference path="defs/jquery.d.ts"/>
@@ -631,9 +659,10 @@ var ApkMethodCount;
             this.model = new ApkMethodCount.Model();
             this.fileReaderOpts = {
                 readAsDefault: "ArrayBuffer", on: {
-                    load: function (e, v) { return _this.onLoad(e, v); }
+                    load: function (e, v) { return _this.onLoadFile(e, v); }
                 }
             };
+            //Check If browser supports FileReader API
             if (typeof FileReader === "undefined") {
                 $('#dropzone, #dropzone-dialog').hide();
                 $('#compat-error').show();
@@ -641,14 +670,13 @@ var ApkMethodCount;
             else {
                 $('#dropzone, #dropzone-dialog').fileReaderJS(this.fileReaderOpts);
             }
-            this.treeView.on("mouseleave", function () {
-                _this.resetLastMouseOverNode();
-            });
+            //Bind event listeners
+            this.treeView.on("mouseleave", function () { return _this.resetLastMouseOverNode(); });
             $("#expand-collapse-btn").on("click", function () { return _this.expandCollapseAll(); });
             $("#download-btn").on("click", function () { return _this.download(); });
             $("#dropzone").on("click", function () { return _this.dropzoneClick(); });
         }
-        AppView.prototype.onLoad = function (e, file) {
+        AppView.prototype.onLoadFile = function (e, file) {
             var _this = this;
             this.lastFilename = this.model.extractFileNameWithoutExt(file.name);
             this.setIsLoading(true);
@@ -705,16 +733,19 @@ var ApkMethodCount;
             this.setIsLoading(false);
         };
         AppView.prototype.recursiveRenderPackage = function (treeBuilder, node, level) {
+            //Sort current node by method counts
             var sortedNode = Object.keys(node).sort(function (a, b) {
-                return node[b][AppView.TREE_COUNT_NAME] - node[a][AppView.TREE_COUNT_NAME];
+                if (a == AppView.TREE_META_NODE || b == AppView.TREE_META_NODE)
+                    return -1;
+                return node[b][AppView.TREE_META_NODE].getCount() - node[a][AppView.TREE_META_NODE].getCount();
             });
             for (var item in sortedNode) {
                 item = sortedNode[item];
-                if (item != AppView.TREE_COUNT_NAME && item != AppView.TREE_CLASSES) {
-                    var displayStyle = level <= AppView.START_LEVEL_VISIBLE ? "visible" : "none";
+                if (item != AppView.TREE_META_NODE) {
+                    var displayStyle = level <= ApkMethodCount.Model.START_LEVEL_VISIBLE ? "visible" : "none";
                     var nodeSign = "<i class='glyphicon " + (level == 0 ? AppView.MINUS_SIGN_GLYPHICON : AppView.PLUS_SIGN_GLYPHICON) + "'></i> ";
-                    var hasChildren = Object.keys(node[item]).length > 2; //TREE_COUNT_NAME and TREE_CLASSES ignore
-                    var count = node[item][AppView.TREE_COUNT_NAME];
+                    var hasChildren = Object.keys(node[item]).length > 1; //TREE_META_NODE ignore
+                    var count = node[item][AppView.TREE_META_NODE].getCount();
                     var extraSpan = "";
                     var extraInfo = "";
                     if (level > 0) {
@@ -758,11 +789,9 @@ var ApkMethodCount;
             tableBody.empty();
             //Sort by counts
             var classes = [];
-            var sortedNode = Object.keys(currentNode[AppView.TREE_CLASSES]).sort(function (a, b) {
-                return currentNode[AppView.TREE_CLASSES][b].getMethodCount() - currentNode[AppView.TREE_CLASSES][a].getMethodCount();
-            });
+            var sortedNode = currentNode[AppView.TREE_META_NODE].getSortedClasses();
             for (var item in sortedNode) {
-                var data = currentNode[AppView.TREE_CLASSES][sortedNode[Number(item)]];
+                var data = currentNode[AppView.TREE_META_NODE].getClassWrapper(Number(sortedNode[item]));
                 var count = data.getMethodCount();
                 var classNameFull = data.getClassType().getDescriptor();
                 var className = DexFileReader.getClassNameOnly(classNameFull);
@@ -867,11 +896,10 @@ var ApkMethodCount;
             var blob = new Blob([this.generatedTreePlain.join("\n")], { type: "text/plain;charset=utf-8" });
             saveAs(blob, this.lastFilename + ".txt");
         };
-        AppView.TREE_COUNT_NAME = "__count";
-        AppView.TREE_CLASSES = "__classes";
+        //Used for saving classes and method counts in package tree
+        AppView.TREE_META_NODE = "__metadata";
         AppView.PLUS_SIGN_GLYPHICON = "glyphicon-plus-sign";
         AppView.MINUS_SIGN_GLYPHICON = "glyphicon-minus-sign";
-        AppView.START_LEVEL_VISIBLE = 1;
         AppView.TEXT_EXPAND = "Expand";
         AppView.TEXT_COLLAPSE = "Collapse";
         return AppView;
