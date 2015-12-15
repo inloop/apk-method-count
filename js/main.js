@@ -882,4 +882,5 @@ var ApkMethodCount;
     };
 })(ApkMethodCount || (ApkMethodCount = {}));
 new ApkMethodCount.AppView();
+///<reference path="js/ts/main.ts"/> 
 //# sourceMappingURL=main.js.map
