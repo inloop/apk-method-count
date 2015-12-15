@@ -37,7 +37,7 @@
         </div>
     </div>
 
-    <div class="panel panel-info" id="dropzone" onclick="dropzoneClick(this)">
+    <div class="panel panel-info" id="dropzone">
         <div id="drop-text" class="panel-body">
             <b>Drop file here</b> to load content or click on this box to open file dialog.<br/>
             <div class="nouploadinfo small">No file will be uploaded - uses only JavaScript HTML5 FileReader.<br /><br /></div>
@@ -53,8 +53,8 @@
 
     <div id="output-box">
         <div id="button-box" class="btn-group">
-            <button type="button" class="btn btn-default btn-sm" onclick="expandCollapseAll(this)" id="expand-collapse-btn">Expand</button>
-            <button type="button" class="btn btn-primary btn-sm" onclick="download(this)">Download</button>
+            <button type="button" class="btn btn-default btn-sm" id="expand-collapse-btn">Expand</button>
+            <button type="button" class="btn btn-primary btn-sm" id="download-btn">Download</button>
         </div>
         <div id="package-tree" class="tree well">
 
@@ -105,13 +105,12 @@
     <a href="https://github.com/inloop/apk-method-count">Fork me on GitHub</a>
 </div>
 
-<script src="js/jquery-1.11.3.min.js"></script>
-<script src="js/bootstrap.min.js"></script>
-<script src="js/filereader.js"></script>
-<script src="js/filesaver.min.js"></script>
-<script src="js/jszip.min.js"></script>
-<script src="js/jdataview.js"></script>
-<script src="js/dexjs.js"></script>
+<script src="js/libs/jquery-1.11.3.min.js"></script>
+<script src="js/libs/bootstrap.min.js"></script>
+<script src="js/libs/filereader.js"></script>
+<script src="js/libs/filesaver.min.js"></script>
+<script src="js/libs/jszip.min.js"></script>
+<script src="js/libs/jdataview.js"></script>
 <script src="js/main.js?v=5"></script>
 
 <script>
