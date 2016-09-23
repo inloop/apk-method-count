@@ -27,7 +27,7 @@ namespace DexFormat {
             for (var i = 0; i < files.length; i++) {
                 var file = files[i];
                 var dexFileReader = new DexFileReader(file);
-                this.dexFiles.push(dexFileReader)
+                this.dexFiles.push(dexFileReader);
             }
         }
 
@@ -35,7 +35,7 @@ namespace DexFormat {
             var res = [];
             for (var i = 0; i < this.dexFiles.length; i++) {
                 var dexFile = this.dexFiles[i];
-                res = res.concat(dexFile.getMethodRefs())
+                res = res.concat(dexFile.getMethodRefs());
             }
             return res;
         }
@@ -44,6 +44,7 @@ namespace DexFormat {
             return this.multidex;
         }
     }
+
     export class DexFileReader {
 
         //Constants
