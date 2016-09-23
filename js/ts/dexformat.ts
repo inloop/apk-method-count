@@ -11,12 +11,44 @@
  */
 namespace DexFormat {
 
+    export class MultiDexFileReader {
+        private static CLASSES_FILENAME:RegExp = /classes\d*\.dex/;
+
+        public multidex:boolean;
+        private dexFiles:DexFileReader[] = [];
+
+        constructor(inputFileStream:ArrayBuffer) {
+            var zip = new JSZip(inputFileStream);
+            var files = zip.file(MultiDexFileReader.CLASSES_FILENAME);
+            if (files.length == 0) {
+                throw new Error("APK does not contain .dex file(s).");
+            }
+            this.multidex = files.length > 1;
+            for (var i = 0; i < files.length; i++) {
+                var file = files[i];
+                var dexFileReader = new DexFileReader(file);
+                this.dexFiles.push(dexFileReader)
+            }
+        }
+
+        public getMethodRefs():MethodDef[] {
+            var res = [];
+            for (var i = 0; i < this.dexFiles.length; i++) {
+                var dexFile = this.dexFiles[i];
+                res = res.concat(dexFile.getMethodRefs())
+            }
+            return res;
+        }
+
+        public isMultidex():boolean {
+            return this.multidex;
+        }
+    }
     export class DexFileReader {
 
         //Constants
         private static DEX_FILE_MAGIC:number[] = [0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x36, 0x00];
         private static DEX_FILE_MAGIC_API_13:number[] = [0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x35, 0x00];
-        private static CLASSES_FILENAME:RegExp = /classes\d*\.dex/;
 
         private header:DexHeader;
         private strings:string[] = [];
@@ -26,47 +58,22 @@ namespace DexFormat {
         private methods:MethodDef[] = [];
         private classes:ClassDef[] = [];
 
-        private multidex:boolean = false;
+        constructor(file:JSZipObject) {
+            var dv = new jDataView(file.asArrayBuffer());
 
-        constructor(inputFileStream:ArrayBuffer) {
-            var zip = new JSZip(inputFileStream);
-            var files = zip.file(DexFileReader.CLASSES_FILENAME);
-
-            //Check if contains at least one dex file
-            if (files.length > 0) {
-                this.multidex = files.length > 1;
-
-                //Clear previous data
-                this.strings.splice(0, this.strings.length);
-                this.types.splice(0, this.types.length);
-                this.protos.splice(0, this.protos.length);
-                this.fields.splice(0, this.fields.length);
-                this.methods.splice(0, this.methods.length);
-                this.classes.splice(0, this.classes.length);
-
-                for (var i = 0; i < files.length; i++) {
-                    var dv = new jDataView(files[i].asArrayBuffer());
-                    if (DexFileReader.isValidDexFile(dv.getBytes(8))) {
-                        this.header = new DexHeader(dv);
-                        this.loadStrings(dv);
-                        this.loadTypes(dv);
-                        this.loadProtos(dv);
-                        this.loadFields(dv);
-                        this.loadMethods(dv);
-                        this.loadClasses(dv);
-
-                        this.markInternalClasses();
-                    } else {
-                        throw new Error("APK not compatible.");
-                    }
-                }
-            } else {
-                throw new Error("APK does not contain .dex file(s).");
+            if (!DexFileReader.isValidDexFile(dv.getBytes(8))) {
+                throw new Error("APK not compatible.");
             }
-        }
 
-        public isMultidex():boolean {
-            return this.multidex;
+            this.header = new DexHeader(dv);
+            this.loadStrings(dv);
+            this.loadTypes(dv);
+            this.loadProtos(dv);
+            this.loadFields(dv);
+            this.loadMethods(dv);
+            this.loadClasses(dv);
+
+            this.markInternalClasses();
         }
 
         public static getClassNameOnly(typeName:string):string {

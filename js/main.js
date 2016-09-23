@@ -1,9 +1,9 @@
-///<reference path="dexformat.ts"/>
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
+///<reference path="dexformat.ts"/>
 var DexFormat;
 (function (DexFormat) {
     (function (AccessFlags) {
@@ -34,7 +34,7 @@ var DexFormat;
         }
         BaseDef.NO_INDEX = 0xffffffff;
         return BaseDef;
-    })();
+    }());
     var ClassBaseDef = (function (_super) {
         __extends(ClassBaseDef, _super);
         function ClassBaseDef() {
@@ -50,7 +50,7 @@ var DexFormat;
             return this.classIdx;
         };
         return ClassBaseDef;
-    })(BaseDef);
+    }(BaseDef));
     var TypeDef = (function (_super) {
         __extends(TypeDef, _super);
         function TypeDef(reader, descriptorIdx) {
@@ -67,7 +67,7 @@ var DexFormat;
             return this.internal;
         };
         return TypeDef;
-    })(BaseDef);
+    }(BaseDef));
     DexFormat.TypeDef = TypeDef;
     var ProtoDef = (function (_super) {
         __extends(ProtoDef, _super);
@@ -87,7 +87,7 @@ var DexFormat;
             return this.reader.getType(this.returnTypeIdx);
         };
         return ProtoDef;
-    })(BaseDef);
+    }(BaseDef));
     DexFormat.ProtoDef = ProtoDef;
     var FieldDef = (function (_super) {
         __extends(FieldDef, _super);
@@ -104,7 +104,7 @@ var DexFormat;
             return this.reader.getType(this.typeIdx);
         };
         return FieldDef;
-    })(ClassBaseDef);
+    }(ClassBaseDef));
     DexFormat.FieldDef = FieldDef;
     var MethodDef = (function (_super) {
         __extends(MethodDef, _super);
@@ -121,7 +121,7 @@ var DexFormat;
             return this.reader.getProto(this.protoIdx);
         };
         return MethodDef;
-    })(ClassBaseDef);
+    }(ClassBaseDef));
     DexFormat.MethodDef = MethodDef;
     var ClassDef = (function (_super) {
         __extends(ClassDef, _super);
@@ -169,7 +169,7 @@ var DexFormat;
             return this.staticValuesOff;
         };
         return ClassDef;
-    })(BaseDef);
+    }(BaseDef));
     DexFormat.ClassDef = ClassDef;
 })(DexFormat || (DexFormat = {}));
 ///<reference path="defs/jszip.d.ts"/>
@@ -184,51 +184,57 @@ var DexFormat;
  */
 var DexFormat;
 (function (DexFormat) {
+    var MultiDexFileReader = (function () {
+        function MultiDexFileReader(inputFileStream) {
+            this.dexFiles = [];
+            var zip = new JSZip(inputFileStream);
+            var files = zip.file(MultiDexFileReader.CLASSES_FILENAME);
+            if (files.length == 0) {
+                throw new Error("APK does not contain .dex file(s).");
+            }
+            this.multidex = files.length > 1;
+            for (var i = 0; i < files.length; i++) {
+                var file = files[i];
+                var dexFileReader = new DexFileReader(file);
+                this.dexFiles.push(dexFileReader);
+            }
+        }
+        MultiDexFileReader.prototype.getMethodRefs = function () {
+            var res = [];
+            for (var i = 0; i < this.dexFiles.length; i++) {
+                var dexFile = this.dexFiles[i];
+                res = res.concat(dexFile.getMethodRefs());
+            }
+            return res;
+        };
+        MultiDexFileReader.prototype.isMultidex = function () {
+            return this.multidex;
+        };
+        MultiDexFileReader.CLASSES_FILENAME = /classes\d*\.dex/;
+        return MultiDexFileReader;
+    }());
+    DexFormat.MultiDexFileReader = MultiDexFileReader;
     var DexFileReader = (function () {
-        function DexFileReader(inputFileStream) {
+        function DexFileReader(file) {
             this.strings = [];
             this.types = [];
             this.protos = [];
             this.fields = [];
             this.methods = [];
             this.classes = [];
-            this.multidex = false;
-            var zip = new JSZip(inputFileStream);
-            var files = zip.file(DexFileReader.CLASSES_FILENAME);
-            //Check if contains at least one dex file
-            if (files.length > 0) {
-                this.multidex = files.length > 1;
-                //Clear previous data
-                this.strings.splice(0, this.strings.length);
-                this.types.splice(0, this.types.length);
-                this.protos.splice(0, this.protos.length);
-                this.fields.splice(0, this.fields.length);
-                this.methods.splice(0, this.methods.length);
-                this.classes.splice(0, this.classes.length);
-                for (var i = 0; i < files.length; i++) {
-                    var dv = new jDataView(files[i].asArrayBuffer());
-                    if (DexFileReader.isValidDexFile(dv.getBytes(8))) {
-                        this.header = new DexHeader(dv);
-                        this.loadStrings(dv);
-                        this.loadTypes(dv);
-                        this.loadProtos(dv);
-                        this.loadFields(dv);
-                        this.loadMethods(dv);
-                        this.loadClasses(dv);
-                        this.markInternalClasses();
-                    }
-                    else {
-                        throw new Error("APK not compatible.");
-                    }
-                }
+            var dv = new jDataView(file.asArrayBuffer());
+            if (!DexFileReader.isValidDexFile(dv.getBytes(8))) {
+                throw new Error("APK not compatible.");
             }
-            else {
-                throw new Error("APK does not contain .dex file(s).");
-            }
+            this.header = new DexHeader(dv);
+            this.loadStrings(dv);
+            this.loadTypes(dv);
+            this.loadProtos(dv);
+            this.loadFields(dv);
+            this.loadMethods(dv);
+            this.loadClasses(dv);
+            this.markInternalClasses();
         }
-        DexFileReader.prototype.isMultidex = function () {
-            return this.multidex;
-        };
         DexFileReader.getClassNameOnly = function (typeName) {
             var dotted = DexFileReader.descriptorToDot(typeName);
             var start = dotted.lastIndexOf(".");
@@ -433,9 +439,8 @@ var DexFormat;
         //Constants
         DexFileReader.DEX_FILE_MAGIC = [0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x36, 0x00];
         DexFileReader.DEX_FILE_MAGIC_API_13 = [0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x35, 0x00];
-        DexFileReader.CLASSES_FILENAME = /classes\d*\.dex/;
         return DexFileReader;
-    })();
+    }());
     DexFormat.DexFileReader = DexFileReader;
     var DexHeader = (function () {
         function DexHeader(dv) {
@@ -476,7 +481,7 @@ var DexFormat;
         DexHeader.ENDIAN_CONSTANT = 0x12345678;
         DexHeader.REVERSE_ENDIAN_CONSTANT = 0x78563412;
         return DexHeader;
-    })();
+    }());
     jDataView.prototype.readStringUtf = function () {
         var len = this.readUnsignedLeb128();
         return this.getString(len);
@@ -493,6 +498,7 @@ var DexFormat;
 ///<reference path="main.ts"/>
 var ApkMethodCount;
 (function (ApkMethodCount) {
+    var MultiDexFileReader = DexFormat.MultiDexFileReader;
     var Model = (function () {
         function Model() {
         }
@@ -500,7 +506,7 @@ var ApkMethodCount;
             return this.currentTreemap;
         };
         Model.prototype.loadDexFile = function (arrayBuffer) {
-            var dexFile = new DexFileReader(arrayBuffer);
+            var dexFile = new MultiDexFileReader(arrayBuffer);
             var methodRefs = dexFile.getMethodRefs();
             var treemap = [];
             for (var i = 0; i < methodRefs.length; i++) {
@@ -585,7 +591,7 @@ var ApkMethodCount;
         Model.START_LEVEL_VISIBLE = 1;
         Model.TREE_CLASS_LEVEL = 1;
         return Model;
-    })();
+    }());
     ApkMethodCount.Model = Model;
     var ClassDataWrapper = (function () {
         function ClassDataWrapper(classType, classDef) {
@@ -606,7 +612,7 @@ var ApkMethodCount;
             return this.classDef;
         };
         return ClassDataWrapper;
-    })();
+    }());
     ApkMethodCount.ClassDataWrapper = ClassDataWrapper;
     var PackageNodeMetaData = (function () {
         function PackageNodeMetaData() {
@@ -635,7 +641,7 @@ var ApkMethodCount;
             });
         };
         return PackageNodeMetaData;
-    })();
+    }());
     ApkMethodCount.PackageNodeMetaData = PackageNodeMetaData;
 })(ApkMethodCount || (ApkMethodCount = {}));
 ///<reference path="dexformat.ts"/>
@@ -903,7 +909,7 @@ var ApkMethodCount;
         AppView.TEXT_EXPAND = "Expand";
         AppView.TEXT_COLLAPSE = "Collapse";
         return AppView;
-    })();
+    }());
     ApkMethodCount.AppView = AppView;
     String.prototype.repeat = function (num) {
         return new Array(num + 1).join(this);
