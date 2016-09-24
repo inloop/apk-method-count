@@ -1,6 +1,8 @@
 [![Android Arsenal](https://img.shields.io/badge/Android%20Arsenal-apk--method--count-brightgreen.svg?style=flat)](https://android-arsenal.com/details/1/1567)
 APK method count
 ============
+####[Deprecated - use official [APK analyzer](https://developer.android.com/studio/build/apk-analyzer.html)]
+
 *Output per-package method counts. Supports [multidex](https://developer.android.com/tools/building/multidex.html).*
 
 ![](img/example.png)
