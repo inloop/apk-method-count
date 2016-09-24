@@ -2,6 +2,7 @@
 
 namespace ApkMethodCount {
 
+    import MultiDexFileReader = DexFormat.MultiDexFileReader;
     export class Model {
 
         private static EMPTY_PACKAGE_NAME:string = "(empty)";
@@ -21,7 +22,7 @@ namespace ApkMethodCount {
         }
 
         public loadDexFile(arrayBuffer:ArrayBuffer):LoadedDexData {
-            var dexFile = new DexFileReader(arrayBuffer);
+            var dexFile = new MultiDexFileReader(arrayBuffer);
             var methodRefs = dexFile.getMethodRefs();
             var treemap:ClassDataWrapper[] = [];
 
